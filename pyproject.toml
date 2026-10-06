@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "re-deal-packet"
+version = "0.1.0"
+description = "Assemble a review-ready real-estate deal packet from two CSV inputs: a subject property and a set of comparable sales. Standard library only."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+
+[project.scripts]
+re-deal-packet = "re_deal_packet:main"
+
+[tool.setuptools]
+py-modules = ["re_deal_packet"]

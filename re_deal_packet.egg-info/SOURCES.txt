@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+re_deal_packet.py
+re_deal_packet.egg-info/PKG-INFO
+re_deal_packet.egg-info/SOURCES.txt
+re_deal_packet.egg-info/dependency_links.txt
+re_deal_packet.egg-info/entry_points.txt
+re_deal_packet.egg-info/top_level.txt
+tests/test_deal_packet.py
