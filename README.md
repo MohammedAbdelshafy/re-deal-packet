@@ -38,7 +38,7 @@ input rows.
 
 ## Install
 
-No dependencies beyond Python 3.8+.
+No dependencies beyond Python 3.9+.
 
 ```sh
 git clone https://github.com/MohammedAbdelshafy/re-deal-packet.git

@@ -80,7 +80,7 @@ def parse_date(raw):
             return datetime.strptime(text, fmt).date()
         except ValueError:
             continue
-    raise PacketError("Unrecognized date (use YYYY-MM-DD): %r" % text)
+    raise PacketError("Unrecognized date %r (accepted: YYYY-MM-DD, MM/DD/YYYY, MM-DD-YYYY)" % text)
 
 
 def read_rows(path, required_columns):
@@ -98,7 +98,11 @@ def read_rows(path, required_columns):
         raise PacketError(
             "Missing required column(s) %s in %s" % (", ".join(missing), path)
         )
-    return header, [dict(r) for r in reader]
+    rows = [dict(r) for r in reader]
+    # Drop fully-blank rows (e.g. a trailing newline block) so they are never
+    # mistaken for data.
+    rows = [r for r in rows if any((v or "").strip() for v in r.values())]
+    return header, rows
 
 
 def median(values):
@@ -137,25 +141,35 @@ def fmt_date(value):
     return value.isoformat()
 
 
+def md_cell(value):
+    """Render a table cell, escaping '|' so user text can't break the table."""
+    return str(value).replace("|", "\\|")
+
+
+def parse_nonnegative(raw, field):
+    """Parse a numeric field that must be >= 0. Raises PacketError otherwise."""
+    value = parse_number(raw)
+    if value is not None and value < 0:
+        raise PacketError("%s must not be negative, got %s" % (field, value))
+    return value
+
+
 def load_property(path):
     _, rows = read_rows(path, REQUIRED_PROPERTY_COLUMNS)
-    if not rows:
-        raise PacketError("property.csv must contain exactly one data row; found none")
+    if len(rows) != 1:
+        raise PacketError(
+            "property.csv must contain exactly one data row; found %d" % len(rows))
     row = rows[0]
     prop = {
         "address": (row.get("address") or "").strip(),
         "city": (row.get("city") or "").strip(),
         "state": (row.get("state") or "").strip(),
         "zip": (row.get("zip") or "").strip(),
-        "asking_price": parse_number(row.get("asking_price")),
-        "beds": parse_number(row.get("beds")),
-        "baths": parse_number(row.get("baths")),
-        "sqft": parse_number(row.get("sqft")),
-        "lot_sqft": parse_number(row.get("lot_sqft")),
-        "year_built": parse_number(row.get("year_built")),
-        "rehab_estimate": parse_number(row.get("rehab_estimate")),
         "notes": (row.get("notes") or "").strip(),
     }
+    for field in ("asking_price", "beds", "baths", "sqft",
+                  "lot_sqft", "year_built", "rehab_estimate"):
+        prop[field] = parse_nonnegative(row.get(field), "property." + field)
     return prop
 
 
@@ -163,17 +177,15 @@ def load_comps(path):
     _, rows = read_rows(path, REQUIRED_COMPS_COLUMNS)
     comps = []
     for i, row in enumerate(rows, start=1):
-        comps.append({
+        comp = {
             "index": i,
             "address": (row.get("address") or "").strip(),
-            "sold_price": parse_number(row.get("sold_price")),
             "sold_date": parse_date(row.get("sold_date")),
-            "beds": parse_number(row.get("beds")),
-            "baths": parse_number(row.get("baths")),
-            "sqft": parse_number(row.get("sqft")),
-            "distance_miles": parse_number(row.get("distance_miles")),
             "notes": (row.get("notes") or "").strip(),
-        })
+        }
+        for field in ("sold_price", "beds", "baths", "sqft", "distance_miles"):
+            comp[field] = parse_nonnegative(row.get(field), "comps row %d: %s" % (i, field))
+        comps.append(comp)
     return comps
 
 
@@ -357,12 +369,12 @@ def render_markdown(ws):
         lines.append("|---|---------|------------|-----------|------|-------|------|-----------|-------|")
         for c in ws["comps"]:
             lines.append("| %d | %s | %s | %s | %s | %s | %s | %s | %s |" % (
-                c["index"], c["address"], fmt_money(c["sold_price"]), fmt_date(c["sold_date"]),
+                c["index"], md_cell(c["address"]), fmt_money(c["sold_price"]), fmt_date(c["sold_date"]),
                 fmt_num(c["beds"], 0) if c["beds"] is not None else "n/a",
                 fmt_num(c["baths"], 0) if c["baths"] is not None else "n/a",
                 fmt_num(c["sqft"], 0) if c["sqft"] else "n/a",
                 fmt_num(c["distance_miles"]) if c["distance_miles"] is not None else "n/a",
-                c["notes"]))
+                md_cell(c["notes"])))
     lines.append("")
 
     lines.append("## Underwriting Worksheet")
@@ -422,23 +434,36 @@ def render_markdown(ws):
 
 
 def write_packet(ws, out_dir):
-    os.makedirs(out_dir, exist_ok=True)
+    if os.path.exists(out_dir) and not os.path.isdir(out_dir):
+        raise PacketError("Output path exists and is not a directory: %s" % out_dir)
     md_path = os.path.join(out_dir, "deal_packet.md")
     json_path = os.path.join(out_dir, "underwriting.json")
-    with open(md_path, "w", encoding="utf-8") as fh:
-        fh.write(render_markdown(ws))
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump(ws, fh, indent=2, default=str)
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        with open(md_path, "w", encoding="utf-8") as fh:
+            fh.write(render_markdown(ws))
+        with open(json_path, "w", encoding="utf-8") as fh:
+            json.dump(ws, fh, indent=2, default=str)
+    except OSError as exc:
+        raise PacketError("Cannot write output to %s: %s" % (out_dir, exc))
     return md_path, json_path
 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="re-deal-packet",
-        description="Assemble a review-ready deal packet from property + comps CSVs.")
-    p.add_argument("--property", required=True, help="Path to property.csv (one row)")
+        description="Assemble a review-ready deal packet from property + comps CSVs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "examples:\n"
+            "  re-deal-packet --property samples/property.csv \\\n"
+            "      --comps samples/comps.csv --out ./packet/\n"
+            "\n"
+            "exit codes: 0 = packet written, 2 = fatal input problem (message on stderr)."
+        ))
+    p.add_argument("--property", required=True, help="Path to property.csv (exactly one data row)")
     p.add_argument("--comps", required=True, help="Path to comps.csv (one row per comp)")
-    p.add_argument("--out", required=True, help="Output directory for the packet")
+    p.add_argument("--out", required=True, help="Output directory for deal_packet.md and underwriting.json")
     p.add_argument("--version", action="version", version="re-deal-packet %s" % VERSION)
     return p.parse_args(argv)
 
@@ -448,11 +473,11 @@ def main(argv=None):
     try:
         prop = load_property(args.property)
         comps = load_comps(args.comps)
+        ws = build_worksheet(prop, comps)
+        md_path, json_path = write_packet(ws, args.out)
     except PacketError as exc:
         print("Error: %s" % exc, file=sys.stderr)
         return 2
-    ws = build_worksheet(prop, comps)
-    md_path, json_path = write_packet(ws, args.out)
     print("Wrote %s" % md_path)
     print("Wrote %s" % json_path)
     print("ARV: %s | MAO: %s | Risk flags: %d" % (

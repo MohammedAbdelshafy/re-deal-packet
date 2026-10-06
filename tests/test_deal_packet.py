@@ -281,3 +281,113 @@ class TestPacketFiles(Case):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestValidation(Case):
+    def test_property_two_rows_fatal(self):
+        write_csv(self.prop, PROP_HEADER, [prop_row(), prop_row()])
+        write_csv(self.comps, COMPS_HEADER, [comp_row(200000)])
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 2)
+
+    def test_property_no_rows_fatal(self):
+        write_csv(self.prop, PROP_HEADER, [])
+        write_csv(self.comps, COMPS_HEADER, [comp_row(200000)])
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 2)
+
+    def test_blank_trailing_rows_ignored(self):
+        with open(self.prop, "w", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(PROP_HEADER)
+            w.writerow(prop_row())
+            fh.write("\n\n")  # trailing blank lines must not count as a second row
+        with open(self.comps, "w", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(COMPS_HEADER)
+            w.writerow(comp_row(200000))
+            w.writerow(comp_row(210000))
+            w.writerow(comp_row(220000))
+            fh.write("\n")
+        ws, _ = self.run_cli_from_files()
+        self.assertEqual(ws["arv"]["count"], 3)
+
+    def run_cli_from_files(self):
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 0)
+        with open(os.path.join(self.out, "underwriting.json"), encoding="utf-8") as fh:
+            ws = json.load(fh)
+        with open(os.path.join(self.out, "deal_packet.md"), encoding="utf-8") as fh:
+            md = fh.read()
+        return ws, md
+
+    def test_negative_asking_price_fatal(self):
+        write_csv(self.prop, PROP_HEADER, [prop_row(asking_price="-100")])
+        write_csv(self.comps, COMPS_HEADER, [comp_row(200000)])
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 2)
+
+    def test_negative_comp_sold_price_fatal(self):
+        write_csv(self.prop, PROP_HEADER, [prop_row()])
+        write_csv(self.comps, COMPS_HEADER, [comp_row(-50000)])
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 2)
+
+    def test_negative_distance_fatal(self):
+        write_csv(self.prop, PROP_HEADER, [prop_row()])
+        rows = [comp_row(200000, **{"distance_miles": "-1"})]
+        write_csv(self.comps, COMPS_HEADER, rows)
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 2)
+
+    def test_zero_beds_allowed(self):
+        # A studio (0 beds) is legitimate input, not an error.
+        ws, _ = self.run_cli([prop_row(beds="0")],
+                             [comp_row(200000), comp_row(210000), comp_row(220000)])
+        self.assertEqual(ws["property"]["beds"], 0)
+
+    def test_out_path_is_existing_file_fatal(self):
+        write_csv(self.prop, PROP_HEADER, [prop_row()])
+        write_csv(self.comps, COMPS_HEADER, [comp_row(200000)])
+        blocker = os.path.join(self.tmp.name, "blocker")
+        with open(blocker, "w", encoding="utf-8") as fh:
+            fh.write("not a directory")
+        rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", blocker])
+        self.assertEqual(rc, 2)
+        # The pre-existing file must be untouched.
+        with open(blocker, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "not a directory")
+
+    def test_us_date_accepted(self):
+        row = comp_row(200000)
+        row[COMPS_HEADER.index("sold_date")] = "08/12/2026"
+        ws, _ = self.run_cli([prop_row()], [row, comp_row(210000), comp_row(220000)])
+        self.assertEqual(ws["comps"][0]["sold_date"], "2026-08-12")
+
+    def test_bad_date_error_mentions_accepted_formats(self):
+        import io
+        from contextlib import redirect_stderr
+        write_csv(self.prop, PROP_HEADER, [prop_row()])
+        row = comp_row(200000)
+        row[COMPS_HEADER.index("sold_date")] = "12 Aug 2026"
+        write_csv(self.comps, COMPS_HEADER, [row])
+        err = io.StringIO()
+        with redirect_stderr(err):
+            rc = rdp.main(["--property", self.prop, "--comps", self.comps, "--out", self.out])
+        self.assertEqual(rc, 2)
+        self.assertIn("YYYY-MM-DD", err.getvalue())
+
+    def test_pipe_in_comp_text_escaped_in_markdown(self):
+        row = comp_row(200000, **{"address": "1 Main | Suite 2", "notes": "a|b"})
+        _, md = self.run_cli([prop_row()], [row, comp_row(210000), comp_row(220000)])
+        self.assertIn("1 Main \\| Suite 2", md)
+        self.assertIn("a\\|b", md)
+
+    def test_version_matches_pyproject(self):
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(base, "pyproject.toml"), encoding="utf-8") as fh:
+            for line in fh:
+                if line.strip().startswith("version"):
+                    pkg_version = line.split("=")[1].strip().strip('"')
+                    break
+        self.assertEqual(rdp.VERSION, pkg_version)

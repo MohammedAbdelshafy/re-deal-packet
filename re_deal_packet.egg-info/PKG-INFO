@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: re-deal-packet
-Version: 0.1.0
+Version: 1.0.0
 Summary: Assemble a review-ready real-estate deal packet from two CSV inputs: a subject property and a set of comparable sales. Standard library only.
 License: MIT
 Requires-Python: >=3.9
@@ -48,7 +48,7 @@ input rows.
 
 ## Install
 
-No dependencies beyond Python 3.8+.
+No dependencies beyond Python 3.9+.
 
 ```sh
 git clone https://github.com/MohammedAbdelshafy/re-deal-packet.git
