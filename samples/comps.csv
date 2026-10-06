@@ -1,0 +1,6 @@
+# SYNTHETIC SAMPLES — NOT real sales. Made-up numbers for testing/demo only.
+address,sold_price,sold_date,beds,baths,sqft,distance_miles,notes
+1201 Sample Ave,255000,2026-08-12,3,2,1620,0.4,Sample: updated kitchen
+1188 Demo Street,248000,2026-07-03,3,2,1580,0.7,Sample: original condition
+1250 Example Blvd,262000,2026-09-05,3,2,1700,0.5,Sample: renovated 2024
+1302 Placeholder Ct,251000,2026-06-18,4,2,1750,0.9,Sample: similar block
