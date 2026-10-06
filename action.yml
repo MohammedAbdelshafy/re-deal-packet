@@ -1,0 +1,30 @@
+name: 'Re-Deal Packet'
+description: 'Assemble a review-ready real-estate deal packet in CI from a subject property CSV and a comparable-sales CSV. Standard library only.'
+author: 'Mohammed Abdelshafy'
+branding:
+  icon: 'home'
+  color: 'red'
+inputs:
+  property:
+    description: 'Path to property.csv (one row), relative to your repo root'
+    required: true
+  comps:
+    description: 'Path to comps.csv (one row per comp), relative to your repo root'
+    required: true
+  out-dir:
+    description: 'Output directory for the packet, relative to your repo root'
+    required: false
+    default: './deal-packet'
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout Re-Deal Packet
+      uses: actions/checkout@v4
+      with:
+        repository: MohammedAbdelshafy/re-deal-packet
+        path: _re_deal_packet
+    - name: Assemble deal packet
+      shell: bash
+      run: |
+        cd _re_deal_packet
+        python3 -m re_deal_packet --property "${{ github.workspace }}/${{ inputs.property }}" --comps "${{ github.workspace }}/${{ inputs.comps }}" --out "${{ github.workspace }}/${{ inputs.out-dir }}"
