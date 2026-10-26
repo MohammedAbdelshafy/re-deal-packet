@@ -1,4 +1,4 @@
-# Property Deal Brief
+# RE Deal Packet
 
 - Inputs, formulas and limits: [README.md](README.md)
 - Implementation: [re_deal_packet.py](re_deal_packet.py)

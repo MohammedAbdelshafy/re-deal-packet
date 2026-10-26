@@ -2,11 +2,11 @@
 type: repository
 status: active
 owner_repo: MohammedAbdelshafy/re-deal-packet
-product_name: Property Deal Brief
+product_name: RE Deal Packet
 source_of_truth: https://github.com/MohammedAbdelshafy/re-deal-packet
 ---
 
-# Property Deal Brief CONTEXT
+# RE Deal Packet CONTEXT
 
 One job: turn property and comparable-sale CSVs into a traceable underwriting worksheet with visible assumptions and risk flags.
 
