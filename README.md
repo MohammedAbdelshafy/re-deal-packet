@@ -1,8 +1,9 @@
-# re-deal-packet
+# Property Deal Brief
 
-A small Python CLI (standard library only) that assembles a review-ready
-real-estate deal packet from two CSV inputs: a subject property and a set of
-comparable sales.
+A small Python tool that prepares a real-estate underwriting brief from a property file and a comparable-sales file. It shows the inputs and formulas, calculates simple screening numbers and flags missing or questionable inputs.
+It performs calculations on numbers provided by the user. It does not verify comps, fetch MLS data, model all holding/closing costs or provide investment advice.
+
+Customer-facing name: **Property Deal Brief**. The repository, package and command identifiers remain unchanged.
 
 It computes an underwriting worksheet — ARV from comp medians, a 70%-rule MAO,
 offer guidance, and price-per-square-foot comparisons — plus a set of
