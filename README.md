@@ -1,4 +1,4 @@
-# Property Deal Brief
+# RE Deal Packet
 
 A small Python tool that prepares a real-estate underwriting brief from a property file and a comparable-sales file. It shows the inputs and formulas, calculates simple screening numbers and flags missing or questionable inputs.
 It performs calculations on numbers provided by the user. It does not verify comps, fetch MLS data, model all holding/closing costs or provide investment advice.
