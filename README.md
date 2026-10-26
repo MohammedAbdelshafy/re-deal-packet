@@ -1,6 +1,7 @@
 # Property Deal Brief
 
-A small Python command-line tool that organizes the details you provide about a property and comparable sales into a reviewable deal brief. The calculations use your inputs; they do not verify that the comps are current or truly comparable.
+A small Python tool that prepares a real-estate underwriting brief from a property file and a comparable-sales file. It shows the inputs and formulas, calculates simple screening numbers and flags missing or questionable inputs.
+It performs calculations on numbers provided by the user. It does not verify comps, fetch MLS data, model all holding/closing costs or provide investment advice.
 
 Customer-facing name: **Property Deal Brief**. The repository, package and command identifiers remain unchanged.
 
